@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap');
+
+:root {
+  --navy-deep: #0b1a30;
+  --navy-primary: #12284c;
+  --navy-soft: #1d3b6f;
+  --ivory-bg: #f8fafc;
+  --warm-glow: rgba(254, 240, 138, 0.45);
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: #081220;
+  color: #f1f5f9;
+}
+
+/* Script Font for "Freshers" title */
+.font-script {
+  font-family: 'Great Vibes', cursive;
+}
+
+.font-serif-header {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Arch Shape Backdrop from the stage decor */
+.stage-arch {
+  border-top-left-radius: 9rem;
+  border-top-right-radius: 9rem;
+}
+
+@media (min-width: 640px) {
+  .stage-arch {
+    border-top-left-radius: 12rem;
+    border-top-right-radius: 12rem;
+  }
+}
+
+/* Fairy Lights Twinkle Animation */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 8px rgba(253, 224, 71, 0.9)); }
+}
+
+.fairy-bulb {
+  animation: twinkle 2.5s infinite ease-in-out;
+}
+.fairy-bulb:nth-child(2n) {
+  animation-delay: 0.8s;
+}
+.fairy-bulb:nth-child(3n) {
+  animation-delay: 1.6s;
+}
+
+/* Gentle Balloon Float */
+@keyframes softFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(1.5deg); }
+}
+
+.animate-balloon-float {
+  animation: softFloat 4.5s ease-in-out infinite;
+}
+
+/* Smooth Modals */
+.modal-enter {
+  animation: modalScale 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.94) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* QR Scanner container overrides */
+#qr-reader-gate, #qr-reader-food {
+  border: none !important;
+}
+
+#qr-reader-gate video, #qr-reader-food video {
+  border-radius: 1rem;
+  object-fit: cover;
+  width: 100% !important;
+}
+
+#qr-reader-gate__dashboard, #qr-reader-food__dashboard {
+  background: transparent !important;
+  color: #94a3b8 !important;
+}
+
+/* Clean Slate Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #081220;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e3a66;
+  border-radius: 999px;
+}
