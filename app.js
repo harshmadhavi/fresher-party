@@ -1,12 +1,12 @@
 /**
  * Ice Breaker 2026 Engine
- * Themed Dual-Scanner, Instant QR Generation, Double-Confirmation Participant Deletion,
+ * Themed Dual-Scanner, Instant QR Generation, Direct Image WhatsApp Sharing,
  * Manual Cash Collection, Scan Result Popups, and Live Total Fees Calculation.
  */
 
 const STORAGE_KEY = "fresher_party_db_2026";
 const ADMIN_PIN = "admin123";
-const TICKET_PRICE = 350; // Updated to ₹350
+const TICKET_PRICE = 350;
 
 // 1. FIREBASE CONFIGURATION
 const firebaseConfig = {
@@ -28,6 +28,7 @@ const db = firebase.firestore();
 let attendeesCache = []; // Real-time synchronized cache
 let currentActiveScanner = null;
 let currentScannerMode = null; // 'GATE' or 'FOOD'
+let currentInspectingAttendee = null; // Active attendee in modal
 let logoTapCount = 0;
 let logoTapTimer = null;
 
@@ -61,6 +62,13 @@ async function createQrDataUrl(payloadText) {
   } catch (err) {
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payloadText)}`;
   }
+}
+
+// Convert Base64 DataURL to real File object for WhatsApp native image sharing
+async function dataUrlToFile(dataUrl, fileName) {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], fileName, { type: "image/png" });
 }
 
 // ================= AUDIO TONES =================
@@ -525,6 +533,7 @@ function renderAdminTable() {
 
 document.getElementById("admin-search-input")?.addEventListener("input", renderAdminTable);
 
+// Approve in Cloud & Open WhatsApp with direct image link
 window.approveAndOpenWhatsApp = async function (id) {
   const attendee = attendeesCache.find(a => a.id === id);
   if (!attendee) return;
@@ -533,6 +542,8 @@ window.approveAndOpenWhatsApp = async function (id) {
     await db.collection("attendees").doc(id).update({ paymentStatus: "APPROVED" });
     playAudio("success");
     showToast(`Approved ${attendee.fullName}!`, "success");
+
+    const cloudQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(attendee.ticketId)}`;
 
     const message = encodeURIComponent(
       `🎟️ *ICE BREAKER 2026 OFFICIAL EVENT PASS & FOOD VOUCHER*\n\n` +
@@ -543,8 +554,9 @@ window.approveAndOpenWhatsApp = async function (id) {
       `📍 *Venue:* Seminar Hall\n` +
       `👔 *Dress Code:* Indo Western\n` +
       `✅ *Gate Pass:* Valid for 1 Main Entry\n` +
-      `🍽 *Refreshment Coupon:* Included (Scan at food counter after gate check-in)\n\n` +
-      `Show this Ticket ID at the gate entrance to scan and enter!`
+      `🍽 *Refreshment Coupon:* Included\n\n` +
+      `🔗 *Your QR Pass Image:* ${cloudQrUrl}\n\n` +
+      `_Show this QR code at the entrance gate to scan and enter!_`
     );
 
     window.open(`https://wa.me/91${attendee.phoneNumber}?text=${message}`, "_blank");
@@ -557,6 +569,8 @@ window.approveAndOpenWhatsApp = async function (id) {
 window.inspectPass = function (id) {
   const attendee = attendeesCache.find(a => a.id === id);
   if (!attendee) return;
+
+  currentInspectingAttendee = attendee;
 
   document.getElementById("inspect-student-name").textContent = attendee.fullName;
   document.getElementById("inspect-ticket-id").textContent = attendee.ticketId;
@@ -574,19 +588,51 @@ window.inspectPass = function (id) {
     downloadBtn.download = `${attendee.ticketId}_Pass.png`;
   }
 
-  const message = encodeURIComponent(
-    `🎟️ *ICE BREAKER 2026 EVENT PASS*\n` +
-    `Attendee: ${attendee.fullName}\n` +
-    `Ticket ID: ${attendee.ticketId} (${attendee.academicYear})\n` +
-    `Venue: Seminar Hall (23 Oct, 10:30 AM)\n` +
-    `Dress Code: Indo Western\n` +
-    `Show this Ticket ID at the entrance gate & food counter!`
-  );
-  document.getElementById("inspect-whatsapp-btn").href = `https://wa.me/91${attendee.phoneNumber}?text=${message}`;
-
   const modal = document.getElementById("pass-inspect-modal");
   modal?.classList.remove("hidden");
   modal?.classList.add("flex");
+};
+
+// ================= NATIVE IMAGE SHARING ON WHATSAPP =================
+window.sharePassOnWhatsApp = async function () {
+  if (!currentInspectingAttendee) return;
+  const a = currentInspectingAttendee;
+
+  const cloudQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(a.ticketId)}`;
+
+  const captionText = 
+    `🎟️ *ICE BREAKER 2026 EVENT PASS*\n\n` +
+    `👤 *Attendee:* ${a.fullName}\n` +
+    `🎫 *Ticket ID:* ${a.ticketId} (${a.academicYear})\n` +
+    `📅 *Date:* 23 Oct, 2026 at 10:30 AM\n` +
+    `📍 *Venue:* Seminar Hall\n` +
+    `👔 *Dress Code:* Indo Western\n` +
+    `🍽 *Refreshment:* Included\n\n` +
+    `🔗 *View / Save Pass:* ${cloudQrUrl}\n\n` +
+    `_Show this QR code at the entrance gate & food counter!_`;
+
+  try {
+    // Attempt native file share on Android/iOS (attaches actual QR image)
+    if (navigator.canShare && a.qrCodeDataUrl.startsWith("data:image")) {
+      const qrFile = await dataUrlToFile(a.qrCodeDataUrl, `${a.ticketId}_pass.png`);
+      
+      if (navigator.canShare({ files: [qrFile] })) {
+        await navigator.share({
+          files: [qrFile],
+          title: `Pass - ${a.fullName}`,
+          text: captionText
+        });
+        return;
+      }
+    }
+  } catch (err) {
+    if (err.name === "AbortError") return; // User closed share sheet
+    console.warn("Native file share fallback:", err);
+  }
+
+  // Fallback: Opens WhatsApp chat with text and direct clickable image link
+  const waUrl = `https://wa.me/91${a.phoneNumber}?text=${encodeURIComponent(captionText)}`;
+  window.open(waUrl, "_blank");
 };
 
 window.closePassInspectModal = function () {
@@ -758,7 +804,7 @@ async function processScanMode(ticketPayload, mode) {
         <div class="p-3 bg-[#081220] rounded-xl text-left text-xs font-mono border border-[#1b345b] space-y-1">
           <div><span class="text-slate-500">Ticket:</span> <span class="text-amber-300 font-bold">${attendee.ticketId}</span></div>
           <div><span class="text-slate-500">Batch:</span> ${attendee.academicYear}</div>
-          <div><span class="text-slate-500">Dinner Coupon:</span> <span class="text-purple-300 font-bold">Ready for Food Counter</span></div>
+          <div><span class="text-slate-500">Refreshment:</span> <span class="text-purple-300 font-bold">Ready for Food Counter</span></div>
         </div>
       `, "border-emerald-500/60");
     }
