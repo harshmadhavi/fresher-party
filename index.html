@@ -207,7 +207,7 @@
         </div>
         <h3 class="text-lg font-bold text-white">Payment Submission Recorded!</h3>
         <p class="text-xs text-slate-300">
-          Thank you, <strong id="submitted-student-name" class="text-white"></strong>. The committee will verify the payment and send your official Gate & Dinner Pass on WhatsApp within <strong>1–2 days</strong>.
+          Thank you, <strong id="submitted-student-name" class="text-white"></strong>. The committee will verify the payment and send your official Gate & Refreshment Pass on WhatsApp within <strong>1–2 days</strong>.
         </p>
       </div>
 
@@ -336,7 +336,7 @@
           </div>
 
           <div class="pt-2 border-t border-[#1b345b] flex gap-2">
-            <input type="text" id="manual-gate-input" placeholder="Ticket ID (e.g. FP-2026-SY-0001)" class="flex-1 bg-[#081220] border border-[#1e3963] rounded-xl px-3 py-2 text-xs text-white uppercase font-mono focus:outline-none focus:border-amber-300" />
+            <input type="text" id="manual-gate-input" placeholder="Ticket ID (e.g. IB-2026-SY-0001)" class="flex-1 bg-[#081220] border border-[#1e3963] rounded-xl px-3 py-2 text-xs text-white uppercase font-mono focus:outline-none focus:border-amber-300" />
             <button onclick="handleManualVerify('GATE')" class="bg-[#1b3b6f] hover:bg-[#254e91] text-white text-xs px-4 py-2 rounded-xl font-bold">
               Check Gate
             </button>
@@ -352,7 +352,7 @@
               <h3 class="text-sm font-bold text-amber-200 flex items-center gap-1.5">
                 <i data-lucide="utensils" class="w-4 h-4"></i> Food Voucher Scanner
               </h3>
-              <p class="text-[10px] text-slate-400">Redeems dinner coupon after gate check-in</p>
+              <p class="text-[10px] text-slate-400">Redeems refreshment coupon after gate check-in</p>
             </div>
             <button onclick="stopCamera()" class="text-rose-400 text-xs font-bold hover:underline">
               Stop Camera
@@ -371,7 +371,7 @@
           </div>
 
           <div class="pt-2 border-t border-[#1b345b] flex gap-2">
-            <input type="text" id="manual-food-input" placeholder="Ticket ID (e.g. FP-2026-SY-0001)" class="flex-1 bg-[#081220] border border-[#1e3963] rounded-xl px-3 py-2 text-xs text-white uppercase font-mono focus:outline-none focus:border-amber-300" />
+            <input type="text" id="manual-food-input" placeholder="Ticket ID (e.g. IB-2026-SY-0001)" class="flex-1 bg-[#081220] border border-[#1e3963] rounded-xl px-3 py-2 text-xs text-white uppercase font-mono focus:outline-none focus:border-amber-300" />
             <button onclick="handleManualVerify('FOOD')" class="bg-[#1b3b6f] hover:bg-[#254e91] text-white text-xs px-4 py-2 rounded-xl font-bold">
               Redeem Food
             </button>
@@ -459,10 +459,15 @@
         <span id="inspect-qr-label" class="text-[9px] font-mono font-bold text-[#0c1e3d] mt-1 uppercase"></span>
       </div>
 
+      <!-- ACTION BUTTONS: NATIVE IMAGE SHARE + DOWNLOAD -->
       <div class="flex flex-col gap-2">
-        <a id="inspect-whatsapp-btn" href="#" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 transition shadow">
+        <button 
+          id="inspect-whatsapp-btn" 
+          type="button" 
+          onclick="sharePassOnWhatsApp()" 
+          class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 transition shadow cursor-pointer">
           <i data-lucide="message-circle" class="w-4 h-4"></i> Send QR Pass on WhatsApp
-        </a>
+        </button>
         <a id="inspect-download-btn" href="#" download="Gate_Pass.png" class="w-full bg-[#132849] hover:bg-[#1a355f] text-slate-200 border border-[#23457a] font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-1.5 transition">
           <i data-lucide="download" class="w-3.5 h-3.5"></i> Download QR Image
         </a>
