@@ -637,7 +637,7 @@ window.sharePassOnWhatsApp = async function () {
     `🎟️ *ICE BREAKER 2026 EVENT PASS*\n\n` +
     `👤 *Attendee:* ${a.fullName}\n` +
     `🎫 *Ticket ID:* ${a.ticketId} (${a.academicYear})\n` +
-    `📅 *Date:* 23 Oct, 2026 at 10:30 AM\n` +
+    `📅 *Date:* 26 Oct, 2026 at 10:30 AM\n` +
     `📍 *Venue:* Seminar Hall\n` +
     `👔 *Dress Code:* Indo Western\n` +
     `🍽 *Refreshment:* Included\n\n` +
