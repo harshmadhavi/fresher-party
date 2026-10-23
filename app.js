@@ -583,7 +583,7 @@ window.approveAndOpenWhatsApp = async function (id) {
       `Hello *${attendee.fullName}*! Your pass has been approved.\n\n` +
       `🎫 *Ticket ID:* ${attendee.ticketId}\n` +
       `🎓 *Batch:* ${attendee.academicYear} Student\n` +
-      `📅 *Date:* 23 Oct, 2026 at 10:30 AM\n` +
+      `📅 *Date:* 26 Oct, 2026 at 10:30 AM\n` +
       `📍 *Venue:* Seminar Hall\n` +
       `👔 *Dress Code:* Indo Western\n` +
       `✅ *Gate Pass:* Valid for 1 Main Entry\n` +
