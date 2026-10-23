@@ -1,7 +1,7 @@
 /**
  * Ice Breaker 2026 Engine
  * Themed Dual-Scanner, Instant QR Generation, Direct Image WhatsApp Sharing,
- * Manual Cash Collection, Scan Result Popups, and Live Total Fees Calculation.
+ * Automatic Screenshot Compression, Safe Admin Rendering, and Cloud Firestore Sync.
  */
 
 const STORAGE_KEY = "fresher_party_db_2026";
@@ -28,7 +28,7 @@ const db = firebase.firestore();
 let attendeesCache = []; // Real-time synchronized cache
 let currentActiveScanner = null;
 let currentScannerMode = null; // 'GATE' or 'FOOD'
-let currentInspectingAttendee = null; // Active attendee in modal
+let currentInspectingAttendee = null; // Currently viewed attendee in pass modal
 let logoTapCount = 0;
 let logoTapTimer = null;
 
@@ -49,7 +49,7 @@ function getDatabase() {
 
 function generateTicketId(year) {
   const seq = String(attendeesCache.length + 1).padStart(4, "0");
-  return `IB-2026-${year.toUpperCase()}-${seq}`;
+  return `IB-2026-${(year || "GEN").toUpperCase()}-${seq}`;
 }
 
 async function createQrDataUrl(payloadText) {
@@ -64,7 +64,7 @@ async function createQrDataUrl(payloadText) {
   }
 }
 
-// Convert Base64 DataURL to real File object for WhatsApp native image sharing
+// Convert Base64 DataURL to real File object for WhatsApp native sharing
 async function dataUrlToFile(dataUrl, fileName) {
   const res = await fetch(dataUrl);
   const blob = await res.blob();
@@ -202,7 +202,7 @@ window.switchAdminTab = function (tab) {
   lucide.createIcons();
 };
 
-// ================= SENIOR REGISTRATION =================
+// ================= SENIOR REGISTRATION & AUTOMATIC IMAGE COMPRESSION =================
 const regForm = document.getElementById("registration-form");
 const regScreenshot = document.getElementById("reg-screenshot");
 const screenshotPreview = document.getElementById("screenshot-preview");
@@ -213,11 +213,36 @@ if (regScreenshot) {
   regScreenshot.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      uploadedScreenshotBase64 = event.target.result;
-      if (screenshotPreview) screenshotPreview.src = uploadedScreenshotBase64;
-      previewContainer?.classList.remove("hidden");
+      const img = new Image();
+      img.onload = () => {
+        // Prevent Firestore 1MB document crash by compressing photo
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const maxDimension = 800;
+
+        if (width > height && width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to lightweight JPEG (~40-60 KB)
+        uploadedScreenshotBase64 = canvas.toDataURL("image/jpeg", 0.6);
+        if (screenshotPreview) screenshotPreview.src = uploadedScreenshotBase64;
+        previewContainer?.classList.remove("hidden");
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   });
@@ -237,7 +262,7 @@ if (regForm) {
       return;
     }
 
-    if (attendeesCache.some(a => a.phoneNumber === phone)) {
+    if (attendeesCache.some(a => String(a.phoneNumber || "").trim() === phone)) {
       showToast("This phone number is already registered!", "error");
       return;
     }
@@ -273,7 +298,7 @@ if (regForm) {
       document.getElementById("submission-confirmation")?.classList.remove("hidden");
       regForm.classList.add("hidden");
     } catch (err) {
-      console.error(err);
+      console.error("Firestore submission error:", err);
       showToast("Cloud connection error. Try again.", "error");
     }
   });
@@ -295,7 +320,7 @@ if (fyForm) {
       return;
     }
 
-    if (attendeesCache.some(a => a.phoneNumber === phone)) {
+    if (attendeesCache.some(a => String(a.phoneNumber || "").trim() === phone)) {
       showToast("This phone number is already registered!", "error");
       return;
     }
@@ -333,7 +358,7 @@ if (fyForm) {
       document.getElementById("submission-confirmation")?.classList.remove("hidden");
       fyForm.classList.add("hidden");
     } catch (err) {
-      console.error(err);
+      console.error("Firestore submission error:", err);
       showToast("Cloud connection error. Try again.", "error");
     }
   });
@@ -364,7 +389,7 @@ document.getElementById("cash-entry-form")?.addEventListener("submit", async (e)
     return;
   }
 
-  if (attendeesCache.some(a => a.phoneNumber === phone)) {
+  if (attendeesCache.some(a => String(a.phoneNumber || "").trim() === phone)) {
     showToast("This phone number is already registered!", "error");
     return;
   }
@@ -397,7 +422,7 @@ document.getElementById("cash-entry-form")?.addEventListener("submit", async (e)
     closeCashModal();
     inspectPass(docRef.id);
   } catch (err) {
-    console.error(err);
+    console.error("Firestore cash entry error:", err);
     showToast("Cloud sync failed.", "error");
   }
 });
@@ -407,15 +432,15 @@ window.deleteParticipant = async function(id) {
   const attendee = attendeesCache.find(a => a.id === id);
   if (!attendee) return;
 
-  const firstConfirm = confirm(`[1/2] Are you sure you want to delete ${attendee.fullName} (${attendee.ticketId})?`);
+  const firstConfirm = confirm(`[1/2] Are you sure you want to delete ${attendee.fullName || "this participant"} (${attendee.ticketId || ""})?`);
   if (!firstConfirm) return;
 
-  const secondConfirm = prompt(`[2/2] CRITICAL CONFIRMATION:\nType DELETE to completely remove ${attendee.fullName} from the cloud database:`);
+  const secondConfirm = prompt(`[2/2] CRITICAL CONFIRMATION:\nType DELETE to completely remove ${attendee.fullName || "this record"} from the cloud database:`);
   if (secondConfirm === "DELETE" || secondConfirm === "delete") {
     try {
       await db.collection("attendees").doc(id).delete();
       playAudio("error");
-      showToast(`Participant ${attendee.fullName} deleted permanently.`, "info");
+      showToast(`Participant ${attendee.fullName || ""} deleted permanently.`, "info");
     } catch (err) {
       console.error(err);
       showToast("Delete failed.", "error");
@@ -425,10 +450,10 @@ window.deleteParticipant = async function(id) {
   }
 };
 
-// ================= ADMIN TABLE & LIVE TOTAL FEES METRICS =================
+// ================= CRASH-PROOF ADMIN TABLE & LIVE TOTAL FEES METRICS =================
 function renderAdminTable() {
   const searchInput = document.getElementById("admin-search-input");
-  const search = (searchInput?.value || "").toLowerCase();
+  const search = (searchInput?.value || "").trim().toLowerCase();
 
   const total = attendeesCache.length;
   const pending = attendeesCache.filter(a => a.paymentStatus === "PENDING").length;
@@ -442,7 +467,7 @@ function renderAdminTable() {
   let cashFees = 0;
 
   approvedList.forEach(a => {
-    const fee = a.feeAmount !== undefined ? a.feeAmount : (a.academicYear === "FY" ? 0 : TICKET_PRICE);
+    const fee = a.feeAmount !== undefined ? Number(a.feeAmount) : (a.academicYear === "FY" ? 0 : TICKET_PRICE);
     totalFees += fee;
 
     if (a.paymentMode === "CASH_COLLECTED") {
@@ -462,11 +487,13 @@ function renderAdminTable() {
   if (document.getElementById("stat-sent")) document.getElementById("stat-sent").textContent = approved;
   if (document.getElementById("stat-entered")) document.getElementById("stat-entered").textContent = entered;
 
-  const filtered = attendeesCache.filter(a =>
-    a.fullName.toLowerCase().includes(search) ||
-    a.ticketId.toLowerCase().includes(search) ||
-    a.phoneNumber.includes(search)
-  );
+  // Safe search that will never crash on undefined/null fields
+  const filtered = attendeesCache.filter(a => {
+    const name = String(a.fullName || "").toLowerCase();
+    const ticket = String(a.ticketId || "").toLowerCase();
+    const phone = String(a.phoneNumber || "").toLowerCase();
+    return name.includes(search) || ticket.includes(search) || phone.includes(search);
+  });
 
   const tbody = document.getElementById("attendee-table-body");
   if (!tbody) return;
@@ -478,6 +505,11 @@ function renderAdminTable() {
 
   tbody.innerHTML = filtered.map(a => {
     const isApproved = a.paymentStatus === "APPROVED";
+    const displayName = a.fullName || "Unnamed Student";
+    const displayTicket = a.ticketId || "IB-2026-UNKNOWN";
+    const displayYear = a.academicYear || "N/A";
+    const qrSrc = a.qrCodeDataUrl || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(displayTicket)}`;
+
     const paymentLabel = a.paymentMode === "CASH_COLLECTED" 
       ? '<span class="text-amber-300 font-bold">💵 Cash (₹350)</span>' 
       : a.paymentScreenshotUrl 
@@ -487,12 +519,13 @@ function renderAdminTable() {
     return `
       <tr class="hover:bg-[#12284c]/40 transition">
         <td class="p-3">
-          <div class="font-bold text-white text-xs">${a.fullName}</div>
-          <span class="text-amber-200 text-[10px] font-mono">${a.ticketId} • ${a.academicYear}</span>
+          <div class="font-bold text-white text-xs">${displayName}</div>
+          <span class="text-amber-200 text-[10px] font-mono">${displayTicket} • ${displayYear}</span>
+          <div class="text-[10px] text-slate-400 font-mono">${a.phoneNumber || ""}</div>
         </td>
         <td class="p-3">
           <button onclick="inspectPass('${a.id}')" class="flex items-center gap-1.5 bg-[#081220] hover:bg-[#152a4e] p-1 rounded-xl border border-[#1b345b] group">
-            <img src="${a.qrCodeDataUrl}" class="w-8 h-8 rounded-lg bg-white p-0.5 object-contain" alt="QR" />
+            <img src="${qrSrc}" class="w-8 h-8 rounded-lg bg-white p-0.5 object-contain" alt="QR" />
             <span class="text-[10px] text-amber-200 group-hover:underline font-mono">View QR</span>
           </button>
         </td>
@@ -533,7 +566,7 @@ function renderAdminTable() {
 
 document.getElementById("admin-search-input")?.addEventListener("input", renderAdminTable);
 
-// Approve in Cloud & Open WhatsApp with direct image link
+// Approve in Cloud & Open WhatsApp with direct cloud image link
 window.approveAndOpenWhatsApp = async function (id) {
   const attendee = attendeesCache.find(a => a.id === id);
   if (!attendee) return;
@@ -572,19 +605,19 @@ window.inspectPass = function (id) {
 
   currentInspectingAttendee = attendee;
 
-  document.getElementById("inspect-student-name").textContent = attendee.fullName;
+  document.getElementById("inspect-student-name").textContent = attendee.fullName || "Student";
   document.getElementById("inspect-ticket-id").textContent = attendee.ticketId;
   document.getElementById("inspect-phone").textContent = attendee.phoneNumber;
   
   const qrImg = document.getElementById("inspect-qr-img");
-  qrImg.src = attendee.qrCodeDataUrl;
+  qrImg.src = attendee.qrCodeDataUrl || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(attendee.ticketId)}`;
   
   const qrLabel = document.getElementById("inspect-qr-label");
-  if (qrLabel) qrLabel.textContent = `${attendee.ticketId} • ${attendee.academicYear}`;
+  if (qrLabel) qrLabel.textContent = `${attendee.ticketId} • ${attendee.academicYear || "Pass"}`;
 
   const downloadBtn = document.getElementById("inspect-download-btn");
   if (downloadBtn) {
-    downloadBtn.href = attendee.qrCodeDataUrl;
+    downloadBtn.href = qrImg.src;
     downloadBtn.download = `${attendee.ticketId}_Pass.png`;
   }
 
@@ -612,8 +645,7 @@ window.sharePassOnWhatsApp = async function () {
     `_Show this QR code at the entrance gate & food counter!_`;
 
   try {
-    // Attempt native file share on Android/iOS (attaches actual QR image)
-    if (navigator.canShare && a.qrCodeDataUrl.startsWith("data:image")) {
+    if (navigator.canShare && a.qrCodeDataUrl && a.qrCodeDataUrl.startsWith("data:image")) {
       const qrFile = await dataUrlToFile(a.qrCodeDataUrl, `${a.ticketId}_pass.png`);
       
       if (navigator.canShare({ files: [qrFile] })) {
@@ -626,11 +658,11 @@ window.sharePassOnWhatsApp = async function () {
       }
     }
   } catch (err) {
-    if (err.name === "AbortError") return; // User closed share sheet
+    if (err.name === "AbortError") return;
     console.warn("Native file share fallback:", err);
   }
 
-  // Fallback: Opens WhatsApp chat with text and direct clickable image link
+  // Fallback: Opens WhatsApp chat with text and direct image URL link
   const waUrl = `https://wa.me/91${a.phoneNumber}?text=${encodeURIComponent(captionText)}`;
   window.open(waUrl, "_blank");
 };
@@ -733,8 +765,8 @@ window.closeScanPopup = function() {
 
 async function processScanMode(ticketPayload, mode) {
   const attendee = attendeesCache.find(a => 
-    a.ticketId.toUpperCase() === ticketPayload.toUpperCase() ||
-    ticketPayload.toUpperCase().includes(a.ticketId.toUpperCase())
+    String(a.ticketId || "").toUpperCase() === ticketPayload.toUpperCase() ||
+    ticketPayload.toUpperCase().includes(String(a.ticketId || "").toUpperCase())
   );
 
   if (!attendee) {
@@ -759,11 +791,11 @@ async function processScanMode(ticketPayload, mode) {
       </div>
       <div>
         <h3 class="text-lg font-black text-amber-300">Pass Awaiting Approval</h3>
-        <p class="text-xs text-slate-300 mt-1">${attendee.fullName}'s registration has not been verified yet.</p>
+        <p class="text-xs text-slate-300 mt-1">${attendee.fullName || "Student"}'s registration has not been verified yet.</p>
       </div>
       <div class="p-3 bg-[#081220] rounded-xl text-left text-xs font-mono border border-[#1b345b]">
         <div>Ticket: ${attendee.ticketId}</div>
-        <div>Batch: ${attendee.academicYear}</div>
+        <div>Batch: ${attendee.academicYear || "N/A"}</div>
       </div>
     `, "border-amber-500/60");
     return;
@@ -772,7 +804,7 @@ async function processScanMode(ticketPayload, mode) {
   if (mode === "GATE") {
     if (attendee.hasEntered) {
       playAudio("error");
-      const timeStr = new Date(attendee.enteredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = attendee.enteredAt ? new Date(attendee.enteredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Earlier";
       showScanPopup(`
         <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-2xl font-bold border border-amber-500/30">
           ⚠️
@@ -825,7 +857,7 @@ async function processScanMode(ticketPayload, mode) {
       `, "border-rose-500/60");
     } else if (attendee.foodClaimed) {
       playAudio("error");
-      const timeStr = new Date(attendee.foodClaimedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = attendee.foodClaimedAt ? new Date(attendee.foodClaimedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Earlier";
       showScanPopup(`
         <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-2xl font-bold border border-amber-500/30">
           🍽️
@@ -870,14 +902,14 @@ document.getElementById("admin-export-btn")?.addEventListener("click", () => {
     "Batch": a.academicYear,
     "WhatsApp": a.phoneNumber,
     "Email": a.email,
-    "Fee Paid (INR)": a.feeAmount !== undefined ? a.feeAmount : (a.academicYear === "FY" ? 0 : TICKET_PRICE),
+    "Fee Paid (INR)": a.feeAmount !== undefined ? Number(a.feeAmount) : (a.academicYear === "FY" ? 0 : TICKET_PRICE),
     "Payment Mode": a.paymentMode || "ONLINE_UPI",
     "Pass Status": a.paymentStatus,
     "Gate Entry": a.hasEntered ? "YES" : "NO",
     "Gate Time": a.enteredAt || "-",
     "Food Claimed": a.foodClaimed ? "YES" : "NO",
     "Food Time": a.foodClaimedAt || "-",
-    "Registration Date": new Date(a.createdAt).toLocaleString()
+    "Registration Date": a.createdAt ? new Date(a.createdAt).toLocaleString() : "-"
   }));
 
   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -893,7 +925,7 @@ document.getElementById("admin-seed-btn")?.addEventListener("click", async () =>
   const demoName = isFYPortal ? "Neha Sharma" : "Rahul Sharma";
   const demoYear = isFYPortal ? "FY" : "SY";
 
-  if (!attendeesCache.some(x => x.phoneNumber === demoPhone)) {
+  if (!attendeesCache.some(x => String(x.phoneNumber || "") === demoPhone)) {
     const ticketId = generateTicketId(demoYear);
     const qrCode = await createQrDataUrl(ticketId);
     await db.collection("attendees").add({
